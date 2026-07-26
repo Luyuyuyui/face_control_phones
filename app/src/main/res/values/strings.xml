@@ -1,3 +1,18 @@
 <resources>
-    <string name="app_name">camera</string>
+    <string name="app_name">FaceControl</string>
+    <string name="app_title">FaceControl</string>
+    <string name="btn_request_camera">1. Request Camera</string>
+    <string name="btn_enable_accessibility">2. Enable Accessibility</string>
+    <string name="btn_enable_overlay">3. Enable Overlay</string>
+    <string name="btn_start_service">Start FaceControl</string>
+    <string name="btn_stop_service">Stop FaceControl</string>
+    <string name="btn_settings">Settings</string>
+    <string name="permission_camera_granted">Camera permission granted</string>
+    <string name="permission_camera_denied">Camera permission denied</string>
+    <string name="notification_channel_name">Face Control Service</string>
+    <string name="notification_title">FaceControl is active</string>
+    <string name="notification_text">Monitoring face gestures...</string>
+    <string name="accessibility_service_label">FaceControl Service</string>
+    <string name="error_notification_title">FaceControl 启动失败</string>
+    <string name="error_notification_text">无法访问摄像头，请检查权限或摄像头是否被占用</string>
 </resources>

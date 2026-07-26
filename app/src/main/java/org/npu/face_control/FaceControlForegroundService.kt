@@ -174,7 +174,7 @@ class FaceControlForegroundService : LifecycleService() {
 
     /** 创建通知渠道（Android 8+ 必须） */
     private fun createNotificationChannel() {
-        val channelName = "Face Control Service"
+        val channelName = getString(R.string.notification_channel_name)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_LOW)
         manager.createNotificationChannel(channel)
@@ -183,8 +183,8 @@ class FaceControlForegroundService : LifecycleService() {
     /** 构建通知内容 */
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("FaceControl is active")
-            .setContentText("Monitoring face gestures...")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .build()
     }
@@ -195,8 +195,8 @@ class FaceControlForegroundService : LifecycleService() {
     private fun showErrorNotification() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("FaceControl 启动失败")
-            .setContentText("无法访问摄像头，请检查权限或摄像头是否被占用")
+            .setContentTitle(getString(R.string.error_notification_title))
+            .setContentText(getString(R.string.error_notification_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setAutoCancel(true)
             .build()
