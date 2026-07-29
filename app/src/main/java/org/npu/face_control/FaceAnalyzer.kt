@@ -117,6 +117,9 @@ class FaceAnalyzer(
     @Volatile
     private var isReleased = false
 
+    // ---------- 手部分析处理器（可选，由服务层挂接） ----------
+    private var handFrameProcessor: HandCursorController? = null
+
     init {
         try {
             val baseOptions = BaseOptions.builder()
@@ -175,6 +178,9 @@ class FaceAnalyzer(
             // image.imageInfo.timestamp 返回纳秒，MediaPipe 需要毫秒
             val timestampMs = image.imageInfo.timestamp / 1_000_000
             landmarker.detectAsync(mpImage, timestampMs)
+
+            // ---------- 5. 将同一帧透传给手部分析器（光标控制） ----------
+            handFrameProcessor?.processFrame(rotatedBitmap, timestampMs)
 
             // 不在此处回收 Bitmap。
             // 因为 detectAsync 是异步的，MediaPipe 内部会在后台线程处理图像数据。
@@ -396,6 +402,23 @@ class FaceAnalyzer(
      */
     private fun dist(a: NormalizedLandmark, b: NormalizedLandmark): Float =
         FaceMath.dist(a.x(), a.y(), b.x(), b.y())
+
+    // ============================================================
+    // 资源释放
+    // ============================================================
+
+    // ============================================================
+    // 手部分析挂接（与服务层共享同一帧，避免重复转换）
+    // ============================================================
+
+    /**
+     * 挂接手部分析处理器。从 [analyze] 方法中每帧透传 Bitmap，
+     * 使 HandCursorController 与 FaceAnalyzer 共享同一帧图像，
+     * 避免两次 [ImageProxy.toBitmap] 转换。
+     */
+    fun attachHandProcessor(processor: HandCursorController) {
+        handFrameProcessor = processor
+    }
 
     // ============================================================
     // 资源释放

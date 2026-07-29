@@ -6,8 +6,12 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
@@ -92,6 +96,14 @@ class FaceControlForegroundService : LifecycleService() {
     /** 人脸分析器实例，用于释放资源 */
     private var faceAnalyzer: FaceAnalyzer? = null
 
+    /** 手部光标控制器 */
+    private var handController: HandCursorController? = null
+
+    /** 光标悬浮窗 */
+    private var cursorOverlay: CursorOverlay? = null
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     /** 屏幕尺寸，用于百分比坐标换算（动态更新） */
     private var screenWidth = 1080
     private var screenHeight = 2400
@@ -160,6 +172,10 @@ class FaceControlForegroundService : LifecycleService() {
             screenHeight = metrics.heightPixels
         }
         Log.d(TAG, "屏幕尺寸更新: ${screenWidth}x${screenHeight}")
+
+        // 通知手部控制器和光标悬浮窗
+        handController?.updateScreenSize(screenWidth, screenHeight)
+        cursorOverlay?.onConfigurationChanged(resources.displayMetrics.density)
     }
 
     /** 百分比 X 坐标 → 像素值 */
@@ -236,6 +252,85 @@ class FaceControlForegroundService : LifecycleService() {
                 faceAnalyzer = analyzer
                 imageAnalysis.setAnalyzer(cameraExecutor, analyzer)
 
+                // ----- 手部光标控制器 -----
+                cursorOverlay = CursorOverlay(this@FaceControlForegroundService)
+
+                // 检查悬浮窗权限
+                val hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Settings.canDrawOverlays(this@FaceControlForegroundService)
+                } else true
+                if (!hasOverlayPermission) {
+                    Log.w(TAG, "SYSTEM_ALERT_WINDOW 权限未授予，手势光标不可见")
+                    Toast.makeText(
+                        this@FaceControlForegroundService,
+                        "请在「悬浮窗权限」中开启本应用的权限，否则手势光标不会显示",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    // 引导用户去设置
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                }
+
+                val controller = HandCursorController(
+                    context = this@FaceControlForegroundService,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight,
+                    onInitFailed = { error ->
+                        Log.e(TAG, "手部模型初始化失败", error)
+                        mainHandler.post {
+                            Toast.makeText(
+                                this@FaceControlForegroundService,
+                                "手势光标模型加载失败，手势控制不可用",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    },
+                    listener = object : HandCursorController.HandCursorListener {
+                        override fun onCursorMove(x: Float, y: Float) {
+                            // MediaPipe 回调可能不在主线程，WindowManager 操作需要切到主线程
+                            mainHandler.post {
+                                cursorOverlay?.updatePosition(x, y)
+                            }
+                        }
+
+                        override fun onCursorVisibilityChanged(visible: Boolean) {
+                            mainHandler.post {
+                                if (visible && hasOverlayPermission) {
+                                    cursorOverlay?.show()
+                                } else {
+                                    cursorOverlay?.hide()
+                                }
+                            }
+                        }
+
+                        override fun onFistClick(x: Float, y: Float) {
+                            mainHandler.post {
+                                cursorOverlay?.setPinching(true)
+                                FaceAccessibilityService.instance?.performClickAction(x, y)
+                                mainHandler.postDelayed({
+                                    cursorOverlay?.setPinching(false)
+                                }, 200)
+                            }
+                        }
+
+                        override fun onFistReleased() {
+                            mainHandler.post {
+                                cursorOverlay?.setPinching(false)
+                            }
+                        }
+                    }
+                )
+                handController = controller
+                analyzer.attachHandProcessor(controller)
+
+                // 应用保存的光标移动速度
+                val speedConfig = SensitivityConfig(this@FaceControlForegroundService)
+                controller.updateSmoothingFactor(speedConfig.cursorSpeed)
+
                 // ----- 选择前置摄像头 -----
                 val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
@@ -292,6 +387,24 @@ class FaceControlForegroundService : LifecycleService() {
             faceAnalyzer = null
         }
 
+        try {
+            handController?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "关闭 HandCursorController 时出错", e)
+        } finally {
+            handController = null
+        }
+
+        try {
+            cursorOverlay?.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "释放 CursorOverlay 时出错", e)
+        } finally {
+            cursorOverlay = null
+        }
+
+        mainHandler.removeCallbacksAndMessages(null)
+
         if (::cameraExecutor.isInitialized) {
             cameraExecutor.shutdown()
         }
@@ -306,10 +419,13 @@ class FaceControlForegroundService : LifecycleService() {
         val isPortrait =
             resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
-        if (isPortrait) {
-            handlePortraitMode(action, service)
-        } else {
-            handleLandscapeMode(action, service)
+        // dispatchGesture() 必须在主线程调用；MediaPipe 回调可能不在主线程
+        mainHandler.post {
+            if (isPortrait) {
+                handlePortraitMode(action, service)
+            } else {
+                handleLandscapeMode(action, service)
+            }
         }
     }
 

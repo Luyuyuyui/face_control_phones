@@ -28,12 +28,17 @@ class SensitivityConfig(context: Context) {
         get() = prefs.getFloat("mar_threshold", 0.5f)
         set(value) = prefs.edit().putFloat("mar_threshold", value).apply()
 
+    /** 光标移动速度（EMA 平滑因子），0.1~1.0，默认 0.3 */
+    var cursorSpeed: Float
+        get() = prefs.getFloat("cursor_speed", 0.3f)
+        set(value) = prefs.edit().putFloat("cursor_speed", value).apply()
+
     // 加载所有配置，返回一个 Thresholds 对象，用于更新 FaceAnalyzer
     fun loadThresholds(): FaceAnalyzer.Thresholds {
         return FaceAnalyzer.Thresholds(
             earClose = earThreshold,
             shakeLeftRatio = shakeThreshold,
-            shakeRightRatio = 1 - shakeThreshold, // 右侧阈值 = 1 - 左侧阈值
+            shakeRightRatio = 1 - shakeThreshold,
             nodRatio = nodThreshold,
             mouthOpenMar = marThreshold
         )

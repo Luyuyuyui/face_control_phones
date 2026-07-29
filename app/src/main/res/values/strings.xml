@@ -11,7 +11,7 @@
     <string name="permission_camera_denied">Camera permission denied</string>
     <string name="notification_channel_name">Face Control Service</string>
     <string name="notification_title">FaceControl is active</string>
-    <string name="notification_text">Monitoring face gestures...</string>
+    <string name="notification_text">面部手势 + 手掌光标已激活</string>
     <string name="accessibility_service_label">FaceControl Service</string>
     <string name="error_notification_title">FaceControl 启动失败</string>
     <string name="error_notification_text">无法访问摄像头，请检查权限或摄像头是否被占用</string>

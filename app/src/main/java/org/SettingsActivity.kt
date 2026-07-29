@@ -20,7 +20,7 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             SettingsScreen(
                 config = config,
-                onBack = { finish() }  // 点击返回按钮关闭当前页面
+                onBack = { finish() }
             )
         }
     }
@@ -31,13 +31,12 @@ fun SettingsScreen(
     config: SensitivityConfig,
     onBack: () -> Unit
 ) {
-    // 使用 mutableState 来让 UI 随滑块变化而更新
     var earThreshold by remember { mutableStateOf(config.earThreshold) }
     var shakeThreshold by remember { mutableStateOf(config.shakeThreshold) }
     var nodThreshold by remember { mutableStateOf(config.nodThreshold) }
     var marThreshold by remember { mutableStateOf(config.marThreshold) }
+    var cursorSpeed by remember { mutableStateOf(config.cursorSpeed) }
 
-    // 保存按钮点击时，将当前 UI 的值保存到 SharedPreferences
     fun saveAndApply() {
         val thresholds = FaceAnalyzer.Thresholds(
             earClose = earThreshold,
@@ -47,9 +46,7 @@ fun SettingsScreen(
             mouthOpenMar = marThreshold
         )
         config.saveThresholds(thresholds)
-        // 这里可以调用 FaceAnalyzer 的 updateThresholds 方法，但需要拿到 FaceAnalyzer 实例。
-        // 由于 FaceAnalyzer 在 Service 中，我们可以通过 Service 暴露一个更新方法，
-        // 或者下次 Service 启动时自动加载最新配置（我们后续优化）。
+        config.cursorSpeed = cursorSpeed
         onBack()
     }
 
@@ -98,6 +95,20 @@ fun SettingsScreen(
             onValueChange = { shakeThreshold = it },
             valueRange = 0.5f..0.9f,
             steps = 4
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ---------- 光标移动速度 ----------
+        Text(
+            text = "光标移动速度: ${String.format("%.1f", cursorSpeed)}  (慢 ← → 快)",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Slider(
+            value = cursorSpeed,
+            onValueChange = { cursorSpeed = it },
+            valueRange = 0.1f..1.0f,
+            steps = 8
         )
 
         Spacer(modifier = Modifier.height(24.dp))
